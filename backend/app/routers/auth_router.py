@@ -1,54 +1,51 @@
 # app/routers/auth_router.py
-from datetime import datetime, timedelta
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_session
-from app.models.user import User
-from passlib.context import CryptContext
-import jwt
-
-from app.utils.auth import SECRET_KEY, ALGORITHM
+from app.auth.security import verify_password, create_access_token, get_current_user
+from app.models.user import User, Role
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
-class LoginIn(BaseModel):
-    username: str
-    password: str
-
-
-class LoginOut(BaseModel):
+class TokenResponse(BaseModel):
     access_token: str
-    role: str
+    token_type: str
+    username: str
+    role: Role
 
 
-@router.post("/login", response_model=LoginOut)
-async def login(payload: LoginIn, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(User).where(User.username == payload.username)
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = select(User).where(User.username == form_data.username)
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if not user or not verify_password(form_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect username or password",
+        )
+
+    token = create_access_token({"sub": user.username})
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        username=user.username,
+        role=user.role,
     )
-    user = result.scalars().first()
 
-    if not user:
-        raise HTTPException(status_code=400, detail="User not found")
 
-    if not pwd_context.verify(payload.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="Incorrect password")
-
-    token = jwt.encode(
-        {
-            "sub": user.username,
-            "role": user.role.value,
-            "exp": datetime.utcnow() + timedelta(hours=8),
-        },
-        SECRET_KEY,
-        algorithm=ALGORITHM,
-    )
-
-    return LoginOut(access_token=token, role=user.role.value)
+@router.get("/me")
+async def me(current_user: User = Depends(get_current_user)):
+    return {
+        "username": current_user.username,
+        "role": current_user.role,
+    }
