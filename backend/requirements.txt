@@ -1,7 +1,11 @@
 fastapi
 uvicorn[standard]
-pydantic
-python-dotenv
-SQLAlchemy
+SQLAlchemy>=2.0
 asyncpg
-motor
+alembic
+PyJWT
+passlib
+pydantic
+pymongo
+python-dotenv
+python-multipart

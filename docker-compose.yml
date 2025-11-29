@@ -1,43 +1,48 @@
-services:
 
+
+services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: factory-backend
+    env_file:
+      - ./backend/.env      # 建議你建立 .env，下面會說內容
+    depends_on:
+      - db
+      - mongo
     ports:
       - "8000:8000"
-    depends_on:
-      - postgres
-      - mongo
-    environment:
-      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@postgres:5432/factorydb"
-      MONGO_URL: "mongodb://mongo:27017"
+    networks:
+      - factory-net
 
-  frontend:
-    build: ./frontend
-    container_name: factory-frontend
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
-    restart: always
-
-  postgres:
+  db:
     image: postgres:16
-    container_name: postgres-db
+    container_name: factory-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: factorydb
+      POSTGRES_USER: factory
+      POSTGRES_PASSWORD: factory
+      POSTGRES_DB: factory_yield
     ports:
       - "5432:5432"
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
-
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - factory-net
 
   mongo:
-    image: mongo:6
-    container_name: mongo-db
+    image: mongo:7
+    container_name: factory-mongo
     ports:
       - "27017:27017"
     volumes:
-      - ./mongo-data:/data/db
+      - mongodata:/data/db
+    networks:
+      - factory-net
+
+networks:
+  factory-net:
+
+volumes:
+  pgdata:
+  mongodata:

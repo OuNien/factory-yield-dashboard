@@ -1,14 +1,12 @@
 # tools/create_user.py
 
 import asyncio
-from sqlalchemy import select
-from passlib.context import CryptContext
 
+from sqlalchemy import select
+
+from app.auth.security import hash_password
 from app.config.database import AsyncSessionLocal
 from app.models.user import User, Role
-
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 async def create_user(username: str, password: str, role: Role):
@@ -26,7 +24,7 @@ async def create_user(username: str, password: str, role: Role):
 
             user = User(
                 username=username,
-                password_hash=pwd_context.hash(password),
+                password_hash=hash_password(password),
                 role=role,
             )
             session.add(user)

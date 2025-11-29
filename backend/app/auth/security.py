@@ -2,9 +2,9 @@
 from datetime import datetime, timedelta
 from typing import Optional, List
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-import jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,15 +20,22 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+from passlib.context import CryptContext
 
-def verify_password(plain_password: str, password_hash: str) -> bool:
-    return pwd_context.verify(plain_password, password_hash)
+# 使用 PBKDF2-SHA256 —— 最穩定、無依賴、無 bcrypt 問題
+pwd_context = CryptContext(
+    schemes=["pbkdf2_sha256"],
+    deprecated="auto"
+)
 
-
-def get_password_hash(password: str) -> str:
-    # 避免超過 bcrypt 72 bytes 限制
-    password = password[:72]
+def hash_password(password: str) -> str:
+    """產生安全的雜湊密碼"""
     return pwd_context.hash(password)
+
+def verify_password(password: str, hashed: str) -> bool:
+    """驗證密碼是否正確"""
+    return pwd_context.verify(password, hashed)
+
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -39,8 +46,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    session: AsyncSession = Depends(get_session),
+        token: str = Depends(oauth2_scheme),
+        session: AsyncSession = Depends(get_session),
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -73,4 +80,5 @@ def require_role(roles: List[Role]):
                 detail="Insufficient privileges",
             )
         return user
+
     return wrapper
