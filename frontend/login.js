@@ -4,10 +4,16 @@ document.getElementById("btnLogin").addEventListener("click", async () => {
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value.trim();
 
+    const form = new URLSearchParams();
+    form.append("username", username);
+    form.append("password", password);
+
     const res = await fetch(`${API}/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: form.toString(),
     });
 
     const data = await res.json();
@@ -17,7 +23,6 @@ document.getElementById("btnLogin").addEventListener("click", async () => {
         return;
     }
 
-    // 儲存 JWT token 與角色
     localStorage.setItem("token", data.access_token);
     localStorage.setItem("role", data.role);
 

@@ -403,19 +403,28 @@ btnApply.addEventListener("click", async () => {
 btnSeed.addEventListener("click", async () => {
   if (!confirm("確定要重建測試資料？現有資料會被清空")) return;
 
+  const token = localStorage.getItem("token");
+  console.log(token)
+
   try {
-    const res = await fetch(`${API_BASE}/seed/all`, {
+    const res = await fetch(`${API_BASE}/seed/sql`, {
       method: "GET",
-      headers: authHeaders(),
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
     });
+
     if (!res.ok) {
       messageEl.textContent = "重建失敗 (權限或伺服器錯誤)";
       return;
     }
+
     const data = await res.json();
-    messageEl.textContent = `重建完成，產生 ${data.lots} 個 lots，請重新選擇條件`;
+    messageEl.textContent = `重建完成，產生 ${data.lot_count} 個 lots，請重新選擇條件`;
     await loadDates();
+
   } catch (e) {
     messageEl.textContent = "無法連線到伺服器 (seed)";
   }
 });
+
