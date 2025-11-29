@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_session
 from app.models.user import User, Role
 
-SECRET_KEY = "CHANGE_ME_TO_A_RANDOM_SECRET"
+SECRET_KEY = "super-secret-key-change-me"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8
 

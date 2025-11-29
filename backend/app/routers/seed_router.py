@@ -11,7 +11,8 @@ from app.config.mongo import mongo_db
 from app.models.lot import Lot
 from app.models.yield_record import YieldRecord
 from app.models.defect_summary import DefectSummary
-from app.utils.auth import require_role
+from app.auth.security import require_role
+
 
 router = APIRouter(prefix="/seed", tags=["Seed / 測試資料"])
 
