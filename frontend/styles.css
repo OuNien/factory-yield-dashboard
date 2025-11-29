@@ -1,0 +1,76 @@
+body {
+    margin: 0;
+    padding: 20px;
+    background: #1e1e1e;
+    color: #fff;
+    font-family: Arial, sans-serif;
+}
+
+h2 {
+    margin-top: 0;
+    font-size: 22px;
+    color: #59a6ff;
+}
+
+.panel {
+    background: #2a2a2a;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+select, button {
+    background: #3a3a3a;
+    color: white;
+    border: 1px solid #555;
+    padding: 5px 8px;
+    margin-right: 8px;
+    border-radius: 3px;
+}
+
+button {
+    background: #59a6ff;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #7bb8ff;
+}
+
+/* 三欄圖表 */
+.dashboard-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.chart-panel {
+    flex: 1;
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 4px;
+    height: 260px;
+}
+
+canvas {
+    width: 100% !important;
+    height: 200px !important;
+}
+
+/* Table */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+td, th {
+    border-bottom: 1px solid #555;
+    padding: 6px;
+    color: #eee;
+}
+
+tr:hover {
+    background: #333;
+}

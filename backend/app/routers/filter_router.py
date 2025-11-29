@@ -1,0 +1,105 @@
+# backend/app/routers/filter_router.py
+
+from datetime import date
+from typing import List
+
+from fastapi import APIRouter, Depends
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config.database import get_session
+from app.models.yield_record import YieldRecord
+from app.models.lot import Lot
+
+router = APIRouter(prefix="/filter", tags=["Filter"])
+
+
+# ---- 1) 取得有資料的所有日期列表 ----
+@router.get("/dates", response_model=List[date])
+async def list_dates(session: AsyncSession = Depends(get_session)):
+    stmt = select(func.date(YieldRecord.timestamp)).distinct().order_by(
+        func.date(YieldRecord.timestamp)
+    )
+    res = await session.execute(stmt)
+    return [row[0] for row in res.all()]
+
+
+# ---- 2) 日期區間 -> 機台列表 ----
+@router.get("/machines", response_model=List[str])
+async def list_machines(
+    date_from: date, date_to: date, session: AsyncSession = Depends(get_session)
+):
+    # 先找該區間內的 lot_id
+    sub = (
+        select(YieldRecord.lot_id)
+        .where(func.date(YieldRecord.timestamp) >= date_from)
+        .where(func.date(YieldRecord.timestamp) <= date_to)
+        .distinct()
+        .subquery()
+    )
+
+    stmt = (
+        select(Lot.station)
+        .where(Lot.lot_id.in_(select(sub.c.lot_id)))
+        .distinct()
+        .order_by(Lot.station)
+    )
+    res = await session.execute(stmt)
+    return [row[0] for row in res.all()]
+
+
+# ---- 3) 日期區間 + 機台 -> Recipe 列表 ----
+@router.get("/recipes", response_model=List[str])
+async def list_recipes(
+    date_from: date,
+    date_to: date,
+    station: str,
+    session: AsyncSession = Depends(get_session),
+):
+    sub = (
+        select(YieldRecord.lot_id)
+        .where(func.date(YieldRecord.timestamp) >= date_from)
+        .where(func.date(YieldRecord.timestamp) <= date_to)
+        .distinct()
+        .subquery()
+    )
+
+    stmt = (
+        select(Lot.product)
+        .where(Lot.lot_id.in_(select(sub.c.lot_id)))
+        .where(Lot.station == station)
+        .distinct()
+        .order_by(Lot.product)
+    )
+
+    res = await session.execute(stmt)
+    return [row[0] for row in res.all()]
+
+
+# ---- 4) 日期區間 + 機台 + Recipe -> Lot 列表 ----
+@router.get("/lots", response_model=List[str])
+async def list_lots(
+    date_from: date,
+    date_to: date,
+    station: str,
+    product: str,
+    session: AsyncSession = Depends(get_session),
+):
+    sub = (
+        select(YieldRecord.lot_id)
+        .where(func.date(YieldRecord.timestamp) >= date_from)
+        .where(func.date(YieldRecord.timestamp) <= date_to)
+        .distinct()
+        .subquery()
+    )
+
+    stmt = (
+        select(Lot.lot_id)
+        .where(Lot.lot_id.in_(select(sub.c.lot_id)))
+        .where(Lot.station == station)
+        .where(Lot.product == product)
+        .order_by(Lot.lot_id)
+    )
+
+    res = await session.execute(stmt)
+    return [row[0] for row in res.all()]

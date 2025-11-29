@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Factory Yield Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<h2>Factory Yield Dashboard</h2>
+
+<div class="panel">
+    <label>日期（From）：</label>
+    <select id="dateFrom"></select>
+
+    <label>日期（To）：</label>
+    <select id="dateTo"></select>
+
+    <label>機台：</label>
+    <select id="stationSelect"></select>
+
+    <label>料號：</label>
+    <select id="productSelect"></select>
+
+    <label>批號（可多選）：</label>
+    <select id="lotSelect" multiple size="5"></select>
+
+    <button id="btnApply">查詢</button>
+</div>
+
+<!-- 三欄圖表 -->
+<div class="dashboard-row">
+    <div class="chart-panel">
+        <h3>Yield Trend</h3>
+        <canvas id="yieldTrendChart"></canvas>
+    </div>
+    <div class="chart-panel">
+        <h3>Defect Pareto</h3>
+        <canvas id="defectParetoChart"></canvas>
+    </div>
+    <div class="chart-panel">
+        <h3>Defect Map</h3>
+        <canvas id="defectMapChart"></canvas>
+    </div>
+</div>
+
+<!-- 缺陷詳細資訊 -->
+<div class="panel">
+    <h3>Defect Details</h3>
+
+    <table id="detailTable">
+        <thead>
+            <tr>
+                <th>Lot</th>
+                <th>Type</th>
+                <th>X</th>
+                <th>Y</th>
+                <th>Severity</th>
+                <th>Wafer</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
