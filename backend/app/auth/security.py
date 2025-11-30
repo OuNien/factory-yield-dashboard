@@ -18,24 +18,21 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-from passlib.context import CryptContext
-
 # 使用 PBKDF2-SHA256 —— 最穩定、無依賴、無 bcrypt 問題
 pwd_context = CryptContext(
     schemes=["pbkdf2_sha256"],
     deprecated="auto"
 )
 
+
 def hash_password(password: str) -> str:
     """產生安全的雜湊密碼"""
     return pwd_context.hash(password)
 
+
 def verify_password(password: str, hashed: str) -> bool:
     """驗證密碼是否正確"""
     return pwd_context.verify(password, hashed)
-
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
