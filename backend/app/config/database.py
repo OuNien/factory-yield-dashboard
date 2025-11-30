@@ -2,10 +2,10 @@
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL not found! Check your .env file.")
-
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+asyncpg://postgres:5741@localhost:5432/factorydb"
+)
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 

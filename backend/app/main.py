@@ -12,6 +12,7 @@ from app.routers.lot_router import router as lot_router
 from app.routers.seed_router import router as seed_router
 from app.routers.summary_router import router as summary_router
 from app.routers.yield_router import router as yield_router
+from app.routers.user_router import router as user_router
 
 load_dotenv()
 
@@ -42,6 +43,7 @@ app.include_router(summary_router)
 app.include_router(detail_router)
 app.include_router(filter_router)
 app.include_router(seed_router)
+app.include_router(user_router)
 
 
 @app.get("/health")

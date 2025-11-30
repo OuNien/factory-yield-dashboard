@@ -19,8 +19,8 @@ class DefectDetailIn(BaseModel):
     lot_id: str
     defect_type: str
     location: Location
-    wafer: Optional[str] = None
-    severity: Optional[int] = None
+    wafer: Optional[int] = None
+    severity: Optional[str] = None
     image_path: Optional[str] = None
     extra: Optional[Dict] = None
 
@@ -45,6 +45,17 @@ async def add_detail(data: DefectDetailIn):
 @router.get("/by_lot", response_model=list[DefectDetailOut])
 async def get_by_lot(lot_id: str):
     docs = list(mongo_db["defect_detail"].find({"lot_id": lot_id}))
+
+    out = []
+    for d in docs:
+        d["id"] = str(d.pop("_id"))
+        out.append(DefectDetailOut(**d))
+
+    return out
+
+@router.get("/list", response_model=list[DefectDetailOut])
+async def get_by_lot():
+    docs = list(mongo_db["defect_detail"].find())
 
     out = []
     for d in docs:

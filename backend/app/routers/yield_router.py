@@ -41,9 +41,9 @@ async def list_yield(session: AsyncSession = Depends(get_session)):
 async def yield_trend(
     date_from: date,
     date_to: date,
-    station: Optional[str] = None,
-    product: Optional[str] = None,
-    lots: Optional[List[str]] = Query(default=None),
+    station: str,
+    product: str,
+    lots: List[str] = Query(),
     session: AsyncSession = Depends(get_session),
 ):
     # ---------------- 1) 依日期 / station / product / lot_ids 取得 yield ----------------
