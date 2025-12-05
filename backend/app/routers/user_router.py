@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import Optional
 from app.auth.security import hash_password
 
-from app.config.database import get_session
+from app.database.database import get_session
 
 from app.models.user import User, Role
 

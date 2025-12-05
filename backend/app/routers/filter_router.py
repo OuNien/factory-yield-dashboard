@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.database import get_session
+from app.database.database import get_session
 from app.models.yield_record import YieldRecord
 from app.models.lot import Lot
 

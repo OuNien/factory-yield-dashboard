@@ -1,5 +1,5 @@
 // frontend/script.js
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "/api";
 
 const dateFromSel = document.getElementById("dateFrom");
 const dateToSel = document.getElementById("dateTo");

@@ -1,18 +1,30 @@
 # app/main.py
-from dotenv import load_dotenv
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import logging
 
-from app.config.database import engine
+from dotenv import load_dotenv
+from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database.database import engine, get_session
 from app.models.base import Base
+from app.models.user import User
 from app.routers.auth_router import router as auth_router
 from app.routers.detail_router import router as detail_router
 from app.routers.filter_router import router as filter_router
 from app.routers.lot_router import router as lot_router
 from app.routers.seed_router import router as seed_router
 from app.routers.summary_router import router as summary_router
-from app.routers.yield_router import router as yield_router
 from app.routers.user_router import router as user_router
+from app.routers.yield_router import router as yield_router
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -30,9 +42,16 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     # 啟動時自動建表
+    logger.info("Application starting up...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("🟢 PostgreSQL tables ensured.")
+    logger.info("Application startup finished")
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    logger.info("Application shutting down...")
 
 
 # 掛上各個 router
@@ -48,4 +67,15 @@ app.include_router(user_router)
 
 @app.get("/health")
 async def health():
+    logger.info("Application health...")
     return {"status": "ok"}
+
+
+@app.get("/healthz/db")
+async def healthz_db(session: AsyncSession = Depends(get_session)):
+    try:
+        query = select(User)
+        await session.execute(query)
+        return {"status": "ok", "db": "ok"}
+    except:
+        return {"status": "error", "db": "error"}

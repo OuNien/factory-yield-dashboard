@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.database import get_session
+from app.database.database import get_session
 from app.auth.security import verify_password, create_access_token, get_current_user
 from app.models.user import User, Role
 

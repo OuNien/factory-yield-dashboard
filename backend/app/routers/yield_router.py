@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.database import get_session
-from app.config.mongo import mongo_db
+from app.database.database import get_session
+from app.database.mongo import mongo_db
 from app.models.defect_summary import DefectSummary
 from app.models.lot import Lot
 from app.models.yield_record import YieldRecord

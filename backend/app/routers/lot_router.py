@@ -4,7 +4,7 @@ from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Optional
 
-from app.config.database import get_session
+from app.database.database import get_session
 from app.models.lot import Lot
 from app.models.yield_record import YieldRecord
 

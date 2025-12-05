@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.database import get_session
+from app.database.database import get_session
 from app.models.defect_summary import DefectSummary
 
 router = APIRouter(prefix="/summary", tags=["Defect Summary"])

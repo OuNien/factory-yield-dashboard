@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.database import get_session
-from app.config.mongo import mongo_db
+from app.database.database import get_session
+from app.database.mongo import mongo_db
 from app.models.lot import Lot
 from app.models.yield_record import YieldRecord
 from app.models.defect_summary import DefectSummary

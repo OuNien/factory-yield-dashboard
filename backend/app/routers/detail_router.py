@@ -3,7 +3,7 @@ from typing import Optional, Dict
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.config.mongo import mongo_db
+from app.database.mongo import mongo_db
 
 router = APIRouter(prefix="/detail", tags=["Defect Detail (Mongo)"])
 
