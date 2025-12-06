@@ -10,3 +10,4 @@ pymongo
 python-dotenv
 python-multipart
 redis
+celery[redis]==5.3.6

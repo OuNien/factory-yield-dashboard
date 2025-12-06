@@ -2,7 +2,7 @@ import time
 
 from fastapi import HTTPException
 
-from app.services.redis_client import redis_client
+from app.services.redis_client import redis_ratelimit
 
 
 def rate_limiter(
@@ -10,7 +10,7 @@ def rate_limiter(
     max_tokens: int = 10,
     refill_rate: float = 1.0,
 ):
-    pipe = redis_client.pipeline()
+    pipe = redis_ratelimit.pipeline()
     now = time.time()
 
     pipe.hgetall(key)
@@ -18,7 +18,7 @@ def rate_limiter(
 
     if not data:
         # 初始化
-        redis_client.hset(key, mapping={
+        redis_ratelimit.hset(key, mapping={
             "tokens": max_tokens - 1,
             "timestamp": now
         })
@@ -37,7 +37,7 @@ def rate_limiter(
 
     tokens -= 1
 
-    redis_client.hset(key, mapping={
+    redis_ratelimit.hset(key, mapping={
         "tokens": tokens,
         "timestamp": now
     })

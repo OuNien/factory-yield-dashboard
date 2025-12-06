@@ -15,7 +15,7 @@ from app.database.mongo import mongo_db
 from app.models.defect_summary import DefectSummary
 from app.models.lot import Lot
 from app.models.yield_record import YieldRecord
-from app.services.redis_client import redis_client
+from app.services.redis_client import redis_cache
 from app.common.rate_limit import rate_limiter
 
 router = APIRouter(prefix="/yield", tags=["Yield & Trend"])
@@ -71,7 +71,7 @@ async def yield_trend(
     cache_key = make_cache_key("yield_trend", params)
 
     # ---------------- 嘗試從 Redis 取 Cache ----------------
-    cached = redis_client.get(cache_key)
+    cached = redis_cache.get(cache_key)
     if cached:
         logger.info("[CACHE HIT]" + cache_key)
         logger.info("Application yield_trend... Finished")
@@ -166,6 +166,6 @@ async def yield_trend(
     }
 
     # ---------------- 寫入 Redis Cache（設定 30 秒） ----------------
-    redis_client.set(cache_key, json.dumps(result2), ex=30)
+    redis_cache.set(cache_key, json.dumps(result2), ex=30)
     logger.info("Application yield_trend... Finished")
     return result2

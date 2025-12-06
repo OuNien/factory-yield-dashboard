@@ -1,7 +1,7 @@
 import hashlib
 import json
 
-from app.services.redis_client import redis_client
+from app.services.redis_client import redis_cache
 
 
 def make_cache_key(prefix: str, params: dict):
@@ -12,7 +12,7 @@ def make_cache_key(prefix: str, params: dict):
 
 
 def clear_yield_trend_cache():
-    keys = redis_client.keys("yield_trend:*")
+    keys = redis_cache.keys("yield_trend:*")
     if keys:
-        redis_client.delete(*keys)
+        redis_cache.delete(*keys)
         print(f"🧹 Cleared {len(keys)} trend cache keys")

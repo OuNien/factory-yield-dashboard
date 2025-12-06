@@ -47,9 +47,26 @@ services:
 
   redis:
     image: redis:7
-    container_name: redis
-    restart: always
+    container_name: redis_main
     ports:
       - "6379:6379"
 
-  
+  redis_cache:
+    image: redis:7
+    container_name: redis_cache
+    ports:
+      - "6380:6379"
+
+
+  worker:
+    build:
+      context: ./backend
+    command: celery -A app.common.celery_app.celery_app worker --loglevel=info
+    depends_on:
+      - redis
+      - backend
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app
+    volumes:
+      - ./backend:/app

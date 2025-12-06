@@ -1,6 +1,5 @@
-import os
 import redis
+from ..config.config import settings
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-
-redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+redis_cache = redis.Redis.from_url(settings.REDIS_CACHE_URL)
+redis_ratelimit = redis.Redis.from_url(settings.REDIS_RATELIMIT_URL)

@@ -13,6 +13,7 @@ from app.common.rate_limit import rate_limiter
 from app.database.database import engine, get_session
 from app.models.base import Base
 from app.models.user import User
+from app.routers.task_router import router as task_router
 from app.routers.auth_router import router as auth_router
 from app.routers.detail_router import router as detail_router
 from app.routers.filter_router import router as filter_router
@@ -21,7 +22,7 @@ from app.routers.seed_router import router as seed_router
 from app.routers.summary_router import router as summary_router
 from app.routers.user_router import router as user_router
 from app.routers.yield_router import router as yield_router
-from app.services.redis_client import redis_client
+from app.services.redis_client import redis_ratelimit
 
 logging.basicConfig(
     level=logging.INFO,
@@ -67,6 +68,7 @@ app.include_router(detail_router)
 app.include_router(filter_router)
 app.include_router(seed_router)
 app.include_router(user_router)
+app.include_router(task_router)
 
 
 @app.get("/health")
@@ -88,10 +90,10 @@ async def healthz_db(session: AsyncSession = Depends(get_session)):
 @app.get("/health/redis")
 async def redis_health():
     try:
-        redis_client.ping()
-        return {"redis": "ok"}
+        redis_ratelimit.ping()
+        return {"redis_ratelimit": "ok"}
     except:
-        return {"redis": "down"}
+        return {"redis_ratelimit": "down"}
 
 
 @app.middleware("http")
