@@ -4,6 +4,7 @@ from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Optional
 
+from app.common.cache_key import clear_yield_trend_cache
 from app.database.database import get_session
 from app.models.lot import Lot
 from app.models.yield_record import YieldRecord
@@ -39,6 +40,7 @@ async def add_lot(
     )
     session.add(lot)
     await session.commit()
+    clear_yield_trend_cache()
     return {"status": "ok"}
 
 
@@ -69,7 +71,7 @@ async def update_lot(
     # 3. commit
     await session.commit()
     await session.refresh(lot)
-
+    clear_yield_trend_cache()
     return {
         "status": "updated",
         "lot_id": lot_id,
@@ -98,6 +100,6 @@ async def delete_lot(lot_id: str, session: AsyncSession = Depends(get_session)):
 
     await session.delete(lot)
     await session.commit()
-
+    clear_yield_trend_cache()
     return {"status": "deleted", "lot_id": lot_id}
 

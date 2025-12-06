@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.cache_key import clear_yield_trend_cache
 from app.database.database import get_session
 from app.database.mongo import mongo_db
 from app.models.lot import Lot
@@ -133,7 +134,7 @@ async def seed_sql(session: AsyncSession = Depends(get_session)):
     # 5) Mongo insert_many
     if defect_docs:
         coll.insert_many(defect_docs)
-
+    clear_yield_trend_cache()
     return {
         "status": "ok",
         "lot_count": len(lots_to_insert),

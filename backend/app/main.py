@@ -2,11 +2,14 @@
 import logging
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import JSONResponse
 
+from app.common.rate_limit import rate_limiter
 from app.database.database import engine, get_session
 from app.models.base import Base
 from app.models.user import User
@@ -18,6 +21,7 @@ from app.routers.seed_router import router as seed_router
 from app.routers.summary_router import router as summary_router
 from app.routers.user_router import router as user_router
 from app.routers.yield_router import router as yield_router
+from app.services.redis_client import redis_client
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,7 +75,7 @@ async def health():
     return {"status": "ok"}
 
 
-@app.get("/healthz/db")
+@app.get("/health/db")
 async def healthz_db(session: AsyncSession = Depends(get_session)):
     try:
         query = select(User)
@@ -79,3 +83,32 @@ async def healthz_db(session: AsyncSession = Depends(get_session)):
         return {"status": "ok", "db": "ok"}
     except:
         return {"status": "error", "db": "error"}
+
+
+@app.get("/health/redis")
+async def redis_health():
+    try:
+        redis_client.ping()
+        return {"redis": "ok"}
+    except:
+        return {"redis": "down"}
+
+
+@app.middleware("http")
+async def global_rate_limit(request: Request, call_next):
+    path = request.url.path
+    logger.info("Application global_rate_limit...")
+    # 你可以排除 health check
+    if path.startswith("/health"):
+        return await call_next(request)
+
+    client_ip = request.client.host
+    key = f"ip:{client_ip}:{path}"
+
+    try:
+        rate_limiter(key, max_tokens=5, refill_rate=1.0)
+        logger.info(f"Application global_rate_limit {key}...")
+    except HTTPException as e:
+        return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+
+    return await call_next(request)

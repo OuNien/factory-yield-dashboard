@@ -3,6 +3,7 @@ from typing import Optional, Dict
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from app.common.cache_key import clear_yield_trend_cache
 from app.database.mongo import mongo_db
 
 router = APIRouter(prefix="/detail", tags=["Defect Detail (Mongo)"])
@@ -35,6 +36,7 @@ class DefectDetailOut(DefectDetailIn):
 async def add_detail(data: DefectDetailIn):
     doc = data.dict()
     result = mongo_db["defect_detail"].insert_one(doc)
+    clear_yield_trend_cache()
 
     return DefectDetailOut(
         id=str(result.inserted_id),

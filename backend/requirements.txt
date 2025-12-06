@@ -9,3 +9,4 @@ pydantic==1.10.13
 pymongo
 python-dotenv
 python-multipart
+redis

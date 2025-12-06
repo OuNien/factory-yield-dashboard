@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480
+    redis_expire_seconds = 30  # 30 秒快取
 
     class Config:
         env_file = ".env"
