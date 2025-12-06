@@ -1,25 +1,31 @@
 # app/main.py
 import logging
+import time
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi import Request
+from fastapi import Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.redis import RedisInstrumentor
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse
 
+from app.common.db_tracing import setup_sqlalchemy_tracing
 from app.common.rate_limit import rate_limiter
+from app.common.tracing import setup_tracing
 from app.database.database import engine, get_session
 from app.models.base import Base
 from app.models.user import User
-from app.routers.task_router import router as task_router
 from app.routers.auth_router import router as auth_router
 from app.routers.detail_router import router as detail_router
 from app.routers.filter_router import router as filter_router
 from app.routers.lot_router import router as lot_router
 from app.routers.seed_router import router as seed_router
 from app.routers.summary_router import router as summary_router
+from app.routers.task_router import router as task_router
 from app.routers.user_router import router as user_router
 from app.routers.yield_router import router as yield_router
 from app.services.redis_client import redis_ratelimit
@@ -48,9 +54,16 @@ app.add_middleware(
 async def on_startup():
     # 啟動時自動建表
     logger.info("Application starting up...")
+
+    setup_tracing("factory-backend")
+
+    FastAPIInstrumentor().instrument_app(app)
+    RedisInstrumentor().instrument()
+    setup_sqlalchemy_tracing(engine)
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("🟢 PostgreSQL tables ensured.")
+
     logger.info("Application startup finished")
 
 
@@ -114,3 +127,41 @@ async def global_rate_limit(request: Request, call_next):
         return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
 
     return await call_next(request)
+
+
+@app.middleware("http")
+async def prometheus_middleware(request: Request, call_next):
+    start = time.time()
+
+    response = await call_next(request)
+
+    process_time = time.time() - start
+    endpoint = request.url.path
+
+    REQUEST_LATENCY.labels(endpoint=endpoint).observe(process_time)
+    REQUEST_COUNT.labels(
+        method=request.method,
+        endpoint=endpoint,
+        http_status=response.status_code
+    ).inc()
+
+    return response
+
+
+REQUEST_COUNT = Counter(
+    "http_requests_total",
+    "Total HTTP requests",
+    ["method", "endpoint", "http_status"]
+)
+
+REQUEST_LATENCY = Histogram(
+    "http_request_latency_seconds",
+    "HTTP request latency",
+    ["endpoint"]
+)
+
+
+@app.get("/metrics")
+async def metrics():
+    data = generate_latest()
+    return Response(data, media_type=CONTENT_TYPE_LATEST)

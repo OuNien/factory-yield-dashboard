@@ -1,8 +1,16 @@
 # app/celery_app.py
 import os
 from celery import Celery
+from opentelemetry.instrumentation.celery import CeleryInstrumentor
 
 from app.config.config import settings
+
+from app.common.tracing import setup_tracing
+
+setup_tracing("factory-worker")
+
+CeleryInstrumentor().instrument()
+
 
 # 在 docker-compose 裡 redis service 名稱就是 "redis"
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
