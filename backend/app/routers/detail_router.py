@@ -1,9 +1,12 @@
 from typing import Optional, Dict
 
-from fastapi import APIRouter
+from aiobreaker import CircuitBreakerError
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from starlette import status
 
 from app.common.cache_key import clear_yield_trend_cache
+from app.common.circuit_breakers import mongo_breaker, circuit_open_counter
 from app.database.mongo import mongo_db
 
 router = APIRouter(prefix="/detail", tags=["Defect Detail (Mongo)"])
@@ -33,9 +36,18 @@ class DefectDetailOut(DefectDetailIn):
 # --------- API ---------
 
 @router.post("/add", response_model=DefectDetailOut)
+@mongo_breaker
 async def add_detail(data: DefectDetailIn):
     doc = data.dict()
-    result = mongo_db["defect_detail"].insert_one(doc)
+    try:
+        result = mongo_db["defect_detail"].insert_one(doc)
+    except CircuitBreakerError:
+        circuit_open_counter.labels(name="mongo_breaker").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable (circuit open)."
+        )
+
     clear_yield_trend_cache()
 
     return DefectDetailOut(
@@ -45,8 +57,16 @@ async def add_detail(data: DefectDetailIn):
 
 
 @router.get("/by_lot", response_model=list[DefectDetailOut])
+@mongo_breaker
 async def get_by_lot(lot_id: str):
-    docs = list(mongo_db["defect_detail"].find({"lot_id": lot_id}))
+    try:
+        docs = list(mongo_db["defect_detail"].find({"lot_id": lot_id}))
+    except CircuitBreakerError:
+        circuit_open_counter.labels(name="mongo_breaker").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable (circuit open)."
+        )
 
     out = []
     for d in docs:
@@ -56,8 +76,16 @@ async def get_by_lot(lot_id: str):
     return out
 
 @router.get("/list", response_model=list[DefectDetailOut])
+@mongo_breaker
 async def get_by_lot():
-    docs = list(mongo_db["defect_detail"].find())
+    try:
+        docs = list(mongo_db["defect_detail"].find())
+    except CircuitBreakerError:
+        circuit_open_counter.labels(name="mongo_breaker").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable (circuit open)."
+        )
 
     out = []
     for d in docs:

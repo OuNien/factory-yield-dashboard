@@ -22,3 +22,4 @@ opentelemetry-instrumentation-requests
 opentelemetry-instrumentation-celery
 opentelemetry-instrumentation-logging
 opentelemetry-instrumentation-sqlalchemy
+aiobreaker

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 
 import jwt
+from aiobreaker import CircuitBreakerError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.database import get_session
 from app.models.user import User, Role
+from ..common.circuit_breakers import postgres_breaker, circuit_open_counter
 from ..config.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -38,7 +40,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
-
+@postgres_breaker
 async def get_current_user(
         token: str = Depends(oauth2_scheme),
         session: AsyncSession = Depends(get_session),
@@ -59,7 +61,14 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid token")
 
     stmt = select(User).where(User.username == username)
-    result = await session.execute(stmt)
+    try:
+        result = await session.execute(stmt)
+    except CircuitBreakerError:
+        circuit_open_counter.labels(name="postgres_breaker").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable (circuit open)."
+        )
     user = result.scalar_one_or_none()
     if user is None:
         raise credentials_exception

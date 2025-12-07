@@ -2,11 +2,14 @@
 import random
 from datetime import datetime, timedelta, date
 
-from fastapi import APIRouter, Depends
+from aiobreaker import CircuitBreakerError
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
 from app.common.cache_key import clear_yield_trend_cache
+from app.common.circuit_breakers import postgres_breaker, mongo_breaker, circuit_open_counter
 from app.database.database import get_session
 from app.database.mongo import mongo_db
 from app.models.lot import Lot
@@ -23,16 +26,33 @@ DEFECT_TYPES = ["Scratch", "Particle", "Bridge", "Crack"]
 
 
 @router.get("/sql", dependencies=[Depends(require_role(["admin"]))])
+@postgres_breaker
+@mongo_breaker
 async def seed_sql(session: AsyncSession = Depends(get_session)):
     # 1) 清空 SQL
-    await session.execute(delete(DefectSummary))
-    await session.execute(delete(YieldRecord))
-    await session.execute(delete(Lot))
-    await session.commit()
+    try:
+        await session.execute(delete(DefectSummary))
+        await session.execute(delete(YieldRecord))
+        await session.execute(delete(Lot))
+        await session.commit()
+    except CircuitBreakerError:
+        circuit_open_counter.labels(name="postgres_breaker").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable (circuit open)."
+        )
+
 
     # 2) 清空 Mongo
-    coll = mongo_db["defect_detail"]
-    coll.delete_many({})
+    try:
+        coll = mongo_db["defect_detail"]
+        coll.delete_many({})
+    except CircuitBreakerError:
+        circuit_open_counter.labels(name="postgres_breaker").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable (circuit open)."
+        )
 
     lots_to_insert = []
     yield_to_insert = []
@@ -124,16 +144,40 @@ async def seed_sql(session: AsyncSession = Depends(get_session)):
 
     # 3) 先插 Lot，確保 FK 存在
     session.add_all(lots_to_insert)
-    await session.commit()
+    try:
+        await session.commit()
+    except CircuitBreakerError:
+        circuit_open_counter.labels(name="postgres_breaker").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable (circuit open)."
+        )
+
 
     # 4) 再插 Yield + Summary
     session.add_all(yield_to_insert)
     session.add_all(summary_to_insert)
-    await session.commit()
+    try:
+        await session.commit()
+    except CircuitBreakerError:
+        circuit_open_counter.labels(name="postgres_breaker").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable (circuit open)."
+        )
+
 
     # 5) Mongo insert_many
     if defect_docs:
-        coll.insert_many(defect_docs)
+        try:
+            coll.insert_many(defect_docs)
+        except CircuitBreakerError:
+            circuit_open_counter.labels(name="postgres_breaker").inc()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database temporarily unavailable (circuit open)."
+            )
+
     clear_yield_trend_cache()
     return {
         "status": "ok",

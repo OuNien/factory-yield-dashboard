@@ -9,8 +9,7 @@ from ..config.config import settings
 engine = create_async_engine(settings.database_url, echo=False, future=True)
 
 DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://postgres:5741@localhost:5432/factorydb"
+    "DATABASE_URL"
 )
 
 AsyncSessionLocal = async_sessionmaker(

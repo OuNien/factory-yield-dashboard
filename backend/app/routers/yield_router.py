@@ -5,11 +5,13 @@ from datetime import date
 from typing import List
 from urllib import request
 
-from fastapi import APIRouter, Depends, Query
+from aiobreaker import CircuitBreakerError
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.cache_key import make_cache_key
+from app.common.circuit_breakers import postgres_breaker, circuit_open_counter
 from app.database.database import get_session
 from app.database.mongo import mongo_db
 from app.models.defect_summary import DefectSummary
@@ -23,9 +25,18 @@ router = APIRouter(prefix="/yield", tags=["Yield & Trend"])
 
 # ---- 原本的簡單列表 API（保留） ----
 @router.get("/list")
+@postgres_breaker
 async def list_yield(session: AsyncSession = Depends(get_session)):
     stmt = select(YieldRecord).order_by(YieldRecord.timestamp.desc())
-    result = await session.execute(stmt)
+    try:
+        result = await session.execute(stmt)
+    except CircuitBreakerError:
+        circuit_open_counter.labels(name="postgres_breaker").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable (circuit open)."
+        )
+
     rows = result.scalars().all()
 
     return [
@@ -51,6 +62,7 @@ logger = logging.getLogger(__name__)
 
 # ---- 新：多天區間 + 機台 + Recipe + Lot IDs 的 Trend + Defect 資訊 ----
 @router.get("/trend")
+@postgres_breaker
 async def yield_trend(
         date_from: date,
         date_to: date,
@@ -93,7 +105,15 @@ async def yield_trend(
     if lots:
         stmt = stmt.where(Lot.lot_id.in_(lots))
 
-    result = await session.execute(stmt)
+    try:
+        result = await session.execute(stmt)
+    except CircuitBreakerError:
+        circuit_open_counter.labels(name="postgres_breaker").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable (circuit open)."
+        )
+
     rows = result.all()
 
     if not rows:
