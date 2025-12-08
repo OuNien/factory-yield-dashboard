@@ -11,17 +11,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1️⃣ 抓取 repo
-    - name: Checkout code
+    - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # 2️⃣ 安裝 Python
     - name: Set up Python 3.11
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.11"
 
-    # 3️⃣ 安裝 pip 套件
     - name: Install dependencies
       run: |
         cd backend
@@ -29,16 +26,15 @@ jobs:
         pip install -r requirements.txt
         pip install pytest pytest-asyncio httpx aiosqlite
 
-    # 4️⃣ 執行 pytest
-    - name: Run tests
+    - name: Run pytest
       run: |
         cd backend
         pytest -q
 
-    # 5️⃣ 保存測試結果（可選）
-    - name: Upload pytest result
+    # 🔥 FIXED: upload-artifact v4 (2025 版)
+    - name: Upload pytest cache
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: pytest-report
+        name: pytest-cache
         path: backend/.pytest_cache
