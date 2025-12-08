@@ -47,9 +47,11 @@ DISABLE_TRACING = os.getenv("DISABLE_TRACING", "false").lower() == "true"
 app = FastAPI(title="Factory Dashboard API")
 
 origins = [
-    "https://factory-yield-frontend.onrender.com",
+    "https://factory-yield-dashboard-front.onrender.com",
     "http://localhost:8080",   # optional for local debug
 ]
+
+
 
 # app.add_middleware(
 #     CORSMiddleware,
