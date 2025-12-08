@@ -9,15 +9,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repo
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Set up Railway CLI
+    - name: Install Railway CLI
       run: |
         curl -fsSL https://railway.app/install.sh | sh
+        echo "$HOME/.railway/bin" >> $GITHUB_PATH
 
-    - name: Deploy Backend Service
+    - name: Deploy Service
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
       run: |
-        railway up --service backend --ci
+        railway up --service backend --project $RAILWAY_PROJECT_ID --ci
