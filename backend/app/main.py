@@ -66,12 +66,12 @@ async def on_startup():
     else:
         logger.info("Tracing disabled on this environment.")
 
-    await create_user("admin", "admin", Role.admin)
-    await create_user("eng", "eng", Role.engineer)
-    await create_user("op", "op", Role.viewer)
-
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        await create_user("admin", "admin", Role.admin)
+        await create_user("eng", "eng", Role.engineer)
+        await create_user("op", "op", Role.viewer)
 
 
 
