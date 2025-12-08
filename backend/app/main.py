@@ -39,6 +39,10 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+import os
+
+DISABLE_TRACING = os.getenv("DISABLE_TRACING", "false").lower() == "true"
+
 app = FastAPI(title="Factory Dashboard API")
 
 app.add_middleware(
@@ -49,22 +53,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.on_event("startup")
 async def on_startup():
-    # 啟動時自動建表
     logger.info("Application starting up...")
 
-    setup_tracing("factory-backend")
-
-    FastAPIInstrumentor().instrument_app(app)
-    RedisInstrumentor().instrument()
-    setup_sqlalchemy_tracing(engine)
+    if not DISABLE_TRACING:
+        setup_tracing("factory-backend")
+        FastAPIInstrumentor().instrument_app(app)
+        RedisInstrumentor().instrument()
+        setup_sqlalchemy_tracing(engine)
+    else:
+        logger.info("Tracing disabled on this environment.")
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    logger.info("Application startup finished")
 
 
 @app.on_event("shutdown")
@@ -109,25 +112,27 @@ async def redis_health():
         return {"redis_ratelimit": "down"}
 
 
-@app.middleware("http")
-async def global_rate_limit(request: Request, call_next):
-    path = request.url.path
-    logger.info("Application global_rate_limit...")
-    # 你可以排除 health check
-    if path.startswith("/health"):
+if not os.getenv("DISABLE_REDIS", "false").lower() == "true":
+    @app.middleware("http")
+    async def global_rate_limit(request: Request, call_next):
+        path = request.url.path
+        logger.info("Application global_rate_limit...")
+        # 你可以排除 health check
+        if path.startswith("/health"):
+            return await call_next(request)
+
+        client_ip = request.client.host
+        key = f"ip:{client_ip}:{path}"
+
+        try:
+            rate_limiter(key, max_tokens=100000, refill_rate=100000)
+            logger.info(f"Application global_rate_limit {key}...")
+        except HTTPException as e:
+            return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+
         return await call_next(request)
-
-    client_ip = request.client.host
-    key = f"ip:{client_ip}:{path}"
-
-    try:
-        rate_limiter(key, max_tokens=100000, refill_rate=100000)
-        logger.info(f"Application global_rate_limit {key}...")
-    except HTTPException as e:
-        return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
-
-    return await call_next(request)
-
+else:
+    logger.info("Rate limiter disabled.")
 
 @app.middleware("http")
 async def prometheus_middleware(request: Request, call_next):
