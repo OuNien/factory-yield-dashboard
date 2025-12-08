@@ -18,7 +18,7 @@ from app.common.rate_limit import rate_limiter
 from app.common.tracing import setup_tracing
 from app.database.database import engine, get_session
 from app.models.base import Base
-from app.models.user import User
+from app.models.user import User, Role
 from app.routers.auth_router import router as auth_router
 from app.routers.detail_router import router as detail_router
 from app.routers.filter_router import router as filter_router
@@ -29,6 +29,7 @@ from app.routers.task_router import router as task_router
 from app.routers.user_router import router as user_router
 from app.routers.yield_router import router as yield_router
 from app.services.redis_client import redis_ratelimit
+from app.tools.create_user import create_user
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,6 +65,10 @@ async def on_startup():
         setup_sqlalchemy_tracing(engine)
     else:
         logger.info("Tracing disabled on this environment.")
+
+    await create_user("admin", "admin", Role.admin)
+    await create_user("eng", "eng", Role.engineer)
+    await create_user("op", "op", Role.viewer)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
