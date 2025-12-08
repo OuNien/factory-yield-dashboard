@@ -1,0 +1,44 @@
+name: Backend Tests
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1️⃣ 抓取 repo
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2️⃣ 安裝 Python
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    # 3️⃣ 安裝 pip 套件
+    - name: Install dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio httpx aiosqlite
+
+    # 4️⃣ 執行 pytest
+    - name: Run tests
+      run: |
+        cd backend
+        pytest -q
+
+    # 5️⃣ 保存測試結果（可選）
+    - name: Upload pytest result
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: pytest-report
+        path: backend/.pytest_cache

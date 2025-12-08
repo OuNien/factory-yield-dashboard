@@ -1,78 +1,180 @@
 # backend/tests/conftest.py
 import pytest
-from fastapi import FastAPI
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 
-from app.routers.auth_router import router as auth_router
-from app.routers.user_router import router as user_router
-from app.routers.lot_router import router as lot_router
-
-from app.database.database import engine, AsyncSessionLocal
+from app.main import app
 from app.models.base import Base
-from app.models.user import User, Role
-from app.auth.security import hash_password
-
-import app.common.cache_key as cache_key
+from app.database.database import get_session as real_get_session
 
 
-# ---- 避免 Redis clear cache 在測試時被真的執行 ----
-@pytest.fixture(autouse=True)
-def _patch_cache(monkeypatch):
-    monkeypatch.setattr(cache_key, "clear_yield_trend_cache", lambda: None)
+# ==============================
+#   測試用 SQLite 資料庫
+# ==============================
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+test_engine = create_async_engine(TEST_DATABASE_URL, future=True)
+TestSessionLocal = sessionmaker(
+    bind=test_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
 
 
-# ---- 建立資料庫（手動呼叫，不 autouse）----
-@pytest.fixture(scope="session")
-async def prepare_database():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-
-
-# ---- DB Session ----
-@pytest.fixture
-async def db_session():
-    async with AsyncSessionLocal() as session:
+# ==============================
+#   覆寫 get_session (FastAPI DI)
+# ==============================
+async def override_get_session() -> AsyncSession:
+    async with TestSessionLocal() as session:
         yield session
 
 
-# ---- 建立 FastAPI app，並主動呼叫 prepare_database ----
-@pytest.fixture(scope="session")
-async def test_app(prepare_database):  # <-- 主動依賴 prepare_database
-    app = FastAPI(title="Factory Dashboard Test API")
+# ==============================
+#   Dummy Redis / Mongo
+# ==============================
 
-    app.include_router(auth_router)
-    app.include_router(user_router)
-    app.include_router(lot_router)
+class DummyPipeline:
+    def __init__(self, store: dict):
+        self.store = store
+        self.ops = []
 
-    return app
+    def hgetall(self, key: str):
+        self.ops.append(("hgetall", key))
+        return self
+
+    def execute(self):
+        results = []
+        for op, key in self.ops:
+            if op == "hgetall":
+                results.append(self.store.get(key, {}))
+        self.ops.clear()
+        return results
 
 
-# ---- http client ----
+class DummyRedis:
+    def __init__(self):
+        self.store: dict = {}
+
+    # health check 用
+    def ping(self):
+        return True
+
+    # rate_limit 用
+    def pipeline(self):
+        return DummyPipeline(self.store)
+
+    def hset(self, key: str, mapping: dict):
+        self.store[key] = mapping
+
+    # cache_key 用
+    def keys(self, pattern="*"):
+        return list(self.store.keys())
+
+    def delete(self, *keys):
+        for k in keys:
+            self.store.pop(k, None)
+
+    # 一般 get/set
+    def get(self, key: str):
+        return self.store.get(key)
+
+    def set(self, key: str, value, ex=None):
+        self.store[key] = value
+        return True
+
+
+class DummyCollection:
+    def __init__(self):
+        self.docs = []
+
+    def find(self, *args, **kwargs):
+        # 回傳 list，就像 list(mongo_db["xxx"].find())
+        return list(self.docs)
+
+    def insert_many(self, docs):
+        self.docs.extend(docs)
+        return True
+
+    def insert_one(self, doc):
+        self.docs.append(doc)
+        return True
+
+    def delete_many(self, *args, **kwargs):
+        self.docs.clear()
+        return True
+
+    def aggregate(self, pipeline):
+        # 測試階段先回空，之後要真的驗證再加行為
+        return []
+
+
+class DummyMongoDB:
+    def __init__(self):
+        self.collections = {}
+
+    def __getitem__(self, name: str):
+        if name not in self.collections:
+            self.collections[name] = DummyCollection()
+        return self.collections[name]
+
+
+def mock_redis_and_mongo():
+    """把專案裡用到的 Redis / Mongo 全部換成 Dummy 版本。"""
+    from app.services import redis_client
+    from app.common import rate_limit, cache_key
+    from app.database import mongo as mongo_module
+    from app.routers import detail_router, seed_router, yield_router
+
+    dummy_redis = DummyRedis()
+    dummy_mongo = DummyMongoDB()
+
+    # 1) redis_client 自己的實例
+    redis_client.redis_cache = dummy_redis
+    redis_client.redis_ratelimit = dummy_redis
+
+    # 2) rate_limit 模組中引用的 redis_ratelimit
+    rate_limit.redis_ratelimit = dummy_redis
+
+    # 3) cache_key 模組中引用的 redis_cache
+    cache_key.redis_cache = dummy_redis
+
+    # 4) yield_router 裡 import 的 redis_cache / mongo_db
+    yield_router.redis_cache = dummy_redis
+    yield_router.mongo_db = dummy_mongo
+
+    # 5) detail_router / seed_router 裡 import 的 mongo_db
+    detail_router.mongo_db = dummy_mongo
+    seed_router.mongo_db = dummy_mongo
+
+    # 6) database.mongo 裡的 mongo_db（有些地方直接用這個）
+    mongo_module.mongo_db = dummy_mongo
+
+
+# ==============================
+#   建 Table / 摧 Table
+# ==============================
+@pytest.fixture(scope="session", autouse=True)
+async def prepare_database():
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+
+# ==============================
+#   共用 HTTP client
+# ==============================
 @pytest.fixture
-async def client(test_app):
-    async with AsyncClient(app=test_app, base_url="http://test") as ac:
+async def client():
+    # 覆寫 DB Session
+    app.dependency_overrides[real_get_session] = override_get_session
+
+    # Mock Redis / Mongo，避免真的去連外部服務
+    mock_redis_and_mongo()
+
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
-
-
-# ---- 測試用 admin 使用者 ----
-@pytest.fixture
-async def admin_user(db_session):
-    username = "admin_test"
-    password = "admin_pw"
-
-    user = await db_session.get(User, username)
-    if not user:
-        user = User(
-            username=username,
-            password_hash=hash_password(password),
-            role=Role.admin,
-        )
-        db_session.add(user)
-        await db_session.commit()
-
-    yield {"obj": user, "password": password}
-
-    # 測試結束後清除
-    await db_session.delete(user)
-    await db_session.commit()
