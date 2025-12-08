@@ -121,7 +121,7 @@ async def global_rate_limit(request: Request, call_next):
     key = f"ip:{client_ip}:{path}"
 
     try:
-        rate_limiter(key, max_tokens=5, refill_rate=1.0)
+        rate_limiter(key, max_tokens=100000, refill_rate=100000)
         logger.info(f"Application global_rate_limit {key}...")
     except HTTPException as e:
         return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
