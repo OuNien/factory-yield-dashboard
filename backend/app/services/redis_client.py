@@ -21,6 +21,8 @@ if USE_FAKE_REDIS:
             return [{}]
         def ping(self):
             return True
+        def keys(self, *a, **k):
+            return {}
 
     redis_cache = FakeRedis()
     redis_ratelimit = FakeRedis()
