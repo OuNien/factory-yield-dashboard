@@ -48,6 +48,7 @@ app = FastAPI(title="Factory Dashboard API")
 
 origins = [
     "https://factory-yield-dashboard-front.onrender.com",
+    "https://factory-yield-dashboard.onrender.com",
     "http://localhost:8080",   # optional for local debug
 ]
 
