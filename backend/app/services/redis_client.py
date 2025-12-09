@@ -23,6 +23,8 @@ if USE_FAKE_REDIS:
             return True
         def keys(self, *a, **k):
             return {}
+        def get(self, *a, **k):
+            return {}
 
     redis_cache = FakeRedis()
     redis_ratelimit = FakeRedis()
