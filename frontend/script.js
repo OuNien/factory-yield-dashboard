@@ -1,5 +1,6 @@
 // frontend/script.js
-const API_BASE = "/api";
+//const API_BASE = "/api";
+const API_BASE = "https://factory-yield-dashboard.onrender.com";
 
 const dateFromSel = document.getElementById("dateFrom");
 const dateToSel = document.getElementById("dateTo");
