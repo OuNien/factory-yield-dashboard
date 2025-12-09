@@ -2,7 +2,8 @@ from locust import HttpUser, task, between
 import random
 
 class DashboardUser(HttpUser):
-    host = "http://localhost:8000"  # <--- 你 backend 的 API 位置
+    # host = "http://localhost:8000"  # <--- 你 backend 的 API 位置
+    host = "https://factory-yield-dashboard.onrender.com"  # <--- 你 backend 的 API 位置
     wait_time = between(1, 4)
 
     def on_start(self):
